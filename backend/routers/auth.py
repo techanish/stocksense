@@ -52,7 +52,8 @@ def login(data: LoginRequest, db: sqlite3.Connection = Depends(get_db)):
     user = db.execute("SELECT * FROM users WHERE email = ?", (data.email,)).fetchone()
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
+    token = create_access_token({"sub": str(user["id"]), "email": user["email"], "role": user["role"]})
+
     return {
         "access_token": token,
         "token_type": "bearer",

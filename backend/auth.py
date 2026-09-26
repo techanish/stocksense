@@ -3,10 +3,9 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -14,15 +13,27 @@ SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+import hashlib
+import hmac
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
+    salt = os.urandom(16)
+    pwd_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+    return f"pbkdf2_sha256${salt.hex()}${pwd_hash.hex()}"
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        parts = hashed.split('$')
+        if len(parts) != 3 or parts[0] != 'pbkdf2_sha256':
+            return False
+        salt = bytes.fromhex(parts[1])
+        expected_hash = bytes.fromhex(parts[2])
+        computed_hash = hashlib.pbkdf2_hmac('sha256', plain.encode('utf-8'), salt, 100000)
+        return hmac.compare_digest(computed_hash, expected_hash)
+    except Exception:
+        return False
+
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
